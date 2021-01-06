@@ -1,4 +1,4 @@
-#include <iostream>
+﻿#include <iostream>
 #include <string>
 #include <map>
 
@@ -11,6 +11,12 @@ enum class TaskStatus {
     TESTING,      // на тестировании
     DONE          // завершена
 };
+
+// пользователь сам контролирует чтобы ф-ция не вышла за пределы enum
+TaskStatus NextStatus(TaskStatus task_status)
+{
+    return static_cast<TaskStatus>(static_cast<int>(task_status) + 1);
+}
 
 
 // Объявляем тип-синоним для map<TaskStatus, int>,
@@ -29,75 +35,41 @@ public:
         all_tasks[person][TaskStatus::NEW]++;
     }
 
-    // Обновить статусы по данному количеству задач конкретного разработчика,
-    // подробности см. ниже
+    // Обновить статусы по данному количеству задач конкретного разработчика
     // Возвращает кортеж измененных задач и оставшихся без изменений
     tuple<TasksInfo, TasksInfo> PerformPersonTasks(
         const string& person, int task_count) {
         TasksInfo updated_tasks;
-        TasksInfo untouched;
-        TaskStatus cur_tasks = TaskStatus::NEW;
-        while (task_count > 0 && cur_tasks != TaskStatus::DONE)
+        TasksInfo untouched; 
+        TasksInfo& person_tasks = all_tasks[person];
+        for (auto cur_tasks = TaskStatus::NEW; 
+             task_count > 0 && cur_tasks != TaskStatus::DONE;
+             cur_tasks = NextStatus(cur_tasks))
         {
-            switch (cur_tasks) {
-            case TaskStatus::NEW:
-                if (all_tasks[person][cur_tasks] >= task_count)
-                {
-                    updated_tasks[TaskStatus::IN_PROGRESS] = task_count;
-                    all_tasks[person][cur_tasks] -= task_count;
-                    task_count = 0;
-                }
-                else if (all_tasks[person][cur_tasks] != 0)
-                {
-                    updated_tasks[TaskStatus::IN_PROGRESS] = all_tasks[person][cur_tasks];
-                    task_count -= all_tasks[person][cur_tasks];
-                    all_tasks[person][cur_tasks] = 0;
-                }
-                cur_tasks = TaskStatus::IN_PROGRESS;
-                break;
-            case TaskStatus::IN_PROGRESS:
-                if (all_tasks[person][cur_tasks] >= task_count)
-                {
-                    updated_tasks[TaskStatus::TESTING] = task_count;
-                    all_tasks[person][cur_tasks] -= task_count;
-                    task_count = 0;
-                }
-                else if (all_tasks[person][cur_tasks] != 0)
-                {
-                    updated_tasks[TaskStatus::TESTING] = all_tasks[person][cur_tasks];
-                    task_count -= all_tasks[person][cur_tasks];
-                    all_tasks[person][cur_tasks] = 0;
-                }
-                cur_tasks = TaskStatus::TESTING;
-                break;
-            case TaskStatus::TESTING:
-                if (all_tasks[person][cur_tasks] >= task_count)
-                {
-                    updated_tasks[TaskStatus::DONE] = task_count;
-                    all_tasks[person][cur_tasks] -= task_count;
-                    task_count = 0;
-                }
-                else if (all_tasks[person][cur_tasks] != 0)
-                {
-                    updated_tasks[TaskStatus::DONE] = all_tasks[person][cur_tasks];
-                    task_count -= all_tasks[person][cur_tasks];
-                    all_tasks[person][cur_tasks] = 0;
-                }
-                cur_tasks = TaskStatus::DONE;
-                break;
-            } //switch
-        } //while
+            if (person_tasks[cur_tasks] >= task_count)
+            {
+                updated_tasks[NextStatus(cur_tasks)] = task_count;
+                person_tasks[cur_tasks] -= task_count;
+                task_count = 0;
+            }
+            else if (person_tasks[cur_tasks] != 0)
+            {
+                updated_tasks[NextStatus(cur_tasks)] = person_tasks[cur_tasks];
+                task_count -= person_tasks[cur_tasks];
+                person_tasks[cur_tasks] = 0;
+            }
+        } 
 
-        for (const auto& tasks : all_tasks[person])
+        for (const auto& tasks : person_tasks)
         {
             if (tasks.second != 0)
-                untouched[tasks.first] =  tasks.second;
+                untouched[tasks.first] = tasks.second;
         }
         untouched.erase(TaskStatus::DONE);
         // обновляем all_tasks;
         for (const auto &tasks : updated_tasks)
         {
-            all_tasks[person][tasks.first] += tasks.second;
+            person_tasks[tasks.first] += tasks.second;
         }
 
         RemoveZeroTasks(person);
@@ -107,16 +79,16 @@ public:
 
 private:
     map<string, TasksInfo> all_tasks;
+
     void RemoveZeroTasks(const string& person)
     {
-        if (all_tasks[person][TaskStatus::NEW] == 0)
-            all_tasks[person].erase(TaskStatus::NEW);
-        if (all_tasks[person][TaskStatus::IN_PROGRESS] == 0)
-            all_tasks[person].erase(TaskStatus::IN_PROGRESS);
-        if (all_tasks[person][TaskStatus::TESTING] == 0)
-            all_tasks[person].erase(TaskStatus::TESTING);
-        if (all_tasks[person][TaskStatus::DONE] == 0)
-            all_tasks[person].erase(TaskStatus::DONE);
+        for(auto task_status = TaskStatus::NEW; 
+            task_status != TaskStatus::DONE; 
+            task_status = NextStatus(task_status))
+        {
+            if (all_tasks[person][task_status] == 0)
+                all_tasks[person].erase(task_status);
+        }
     }
 };
 
